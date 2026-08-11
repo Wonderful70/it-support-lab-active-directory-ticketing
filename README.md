@@ -14,6 +14,7 @@ This repo documents that process step by step, including the problems I ran into
 - **Windows Server 2022**: configured as the Domain Controller
 - **Windows 11 Enterprise**: configured as a domain-joined client machine
 - **Active Directory Domain Services (AD DS)**: Microsoft's directory service for managing users, computers, and permissions
+- **osTicket**: local ticketing system used to simulate real support requests
 
 ---
 
@@ -24,7 +25,7 @@ This repo documents that process step by step, including the problems I ran into
   /01-lab-setup         → VirtualBox + VM installation screenshots
   /02-active-directory  → AD DS promotion, OU/user/group tasks, troubleshooting
   /03-osticket          → ticketing system setup and configuration
-  /04-integration       → (in progress) full end-to-end support scenarios
+  /04-integration       → full end-to-end support scenarios
   README.md             → this file
 ```
 
@@ -174,8 +175,84 @@ Setting the MySQL root password fixed the install, but it broke something else I
 
 This is the piece that actually matters: not just that the categories and SLA and canned responses exist, but that a ticket can move through the whole lifecycle, submitted, picked up, answered, and closed, the same way a real one would.
 
+---
+
 ## Phase 4: Integration Project
-*In progress. Will combine osTicket tickets with the AD lab above to simulate end-to-end support workflows: a "user" submits a lockout ticket, I resolve it in AD, then reply and close the ticket in osTicket.*
+
+This is where the first three phases actually come together. Instead of treating Active Directory and osTicket as two separate exercises, I ran four full scenarios that mirror what a real Tier 1 shift looks like: a ticket comes in, I go figure out what's actually wrong, fix it in Active Directory, then go back and tell the person what I did before closing things out. Nothing here is graded on whether the fix worked. It's graded on whether someone reading the closed ticket later, without me in the room to explain it, would understand exactly what happened and why.
+
+```
+04-integration
+  scenario-1-password-reset
+  scenario-2-new-hire
+  scenario-3-account-disable
+  scenario-4-group-membership
+```
+
+**Why the resolution notes matter as much as the fix:** it's tempting to think documentation is mostly for handing a hard problem up to Tier 2. It's really broader than that. A well-written closed ticket is what lets the next shift, an auditor, or even me three months from now understand what happened without having to ask. I tried to write every closing note with that in mind rather than just typing "resolved."
+
+### Scenario 1: Password Reset
+Category: Incident
+
+A student, Jane Doe, got locked out of her account and submitted a ticket asking for help getting back in.
+
+| Screenshot | What it shows |
+|---|---|
+| `49.0` / `49.1` | Ticket submitted by Jane Doe ("Locked out of my account") and the confirmation after submitting |
+| `50` | Ticket sitting in the staff-side Open queue |
+| `51` | Full ticket details reviewed, including the Password Reset SLA applied automatically |
+| `52` | Reset Password dialog in ADUC, new password set with "User must change password at next logon" checked |
+| `53` | Confirmation that the reset went through |
+| `54` | Canned response drafted in osTicket, confirming the reset |
+| `55` | Ticket closed, with the resolution written into the thread |
+
+I reset her password in Active Directory and forced a change at next logon, so I never actually know her new, ongoing password. That's standard practice, not just a formality.
+
+### Scenario 2: New Hire Account Creation
+Category: Service request, since nothing was actually broken here, someone just needed something set up ahead of time
+
+A manager submitted a ticket asking for an account to be ready before a new part-time hire's first day.
+
+| Screenshot | What it shows |
+|---|---|
+| `56` | Ticket submitted by the manager, requesting an account for the incoming hire |
+| `57` / `58` | Ticket sitting in the queue, then opened for review |
+| `59` | New User wizard in ADUC, account being created in the Staff OU |
+| `60` | Finished account showing up in the Staff OU, initial password set with a forced change at next logon |
+| `61` | Reply confirming the account is ready, including the username but leaving out the password |
+| `62` | Ticket closed |
+
+I left the password out of the ticket reply on purpose. A ticket isn't a secure channel since more than one person can see it, so real practice is to hand over login credentials separately and just confirm the username and status in the ticket itself.
+
+### Scenario 3: Account Disable
+Category: Service request
+
+A manager submitted a ticket letting me know an employee's last day was coming up and asking for their access to be removed.
+
+| Screenshot | What it shows |
+|---|---|
+| `63` | Ticket submitted by the manager, noting the employee's last day and requesting access removal |
+| `64` | Ticket reviewed in the queue |
+| `65` | Account disabled in ADUC, not deleted |
+| `66` | Reply confirming the account was disabled, with the date and reason noted |
+| `67` | Ticket closed |
+
+I disabled the account instead of deleting it. Disabling blocks login access but keeps the account, its data, and its permission history intact, which matters if anything needs to be reviewed or handed off later, and it's easy to reverse if the person ever comes back. Deleting is permanent and wipes that history out, so it's something you avoid unless there's an actual reason to do it.
+
+### Scenario 4: Group Membership Change
+Category: Service request
+
+A manager asked for Jane Doe to be added to the Helpdesk-Staff security group so she could start helping out with IT part-time.
+
+| Screenshot | What it shows |
+|---|---|
+| `68` | Ticket submitted requesting Jane Doe be added to Helpdesk-Staff |
+| `69` | Ticket reviewed in the queue |
+| `70` | Jane Doe's account properties, Member Of tab, adding the Helpdesk-Staff group |
+| `71` | Helpdesk-Staff now showing up in her group memberships |
+| `72` | Reply confirming the change, noting she might need to log off and back on for it to fully apply, then the ticket closed |
+
+I mentioned the log off and back on step in the reply because group membership changes don't always apply instantly to a session that's already logged in, the same reasoning behind the `gpupdate /force` command I used back in Phase 2. Flagging that up front heads off a confused follow-up message before it happens.
 
 ---
 
